@@ -39,8 +39,8 @@ class ActivityHunter:
         self.log_in = False
         self.NUM_OF_FETCHES = 0 
         
-        
-        self.to_date = time.mktime(datetime.datetime.strptime(self.to_date, "%d-%m-%Y").timetuple())
+        print('reached maximum rate limit.. trying again in {} sec'.format(TRY_AGAIN_SLEEP_DELAY))
+        self.to_date = time.mktime(datetime.datetime.strptime(self.to_date, "%d/%m/%Y").timetuple())
         
     
     #Logs in to Instagram
@@ -171,7 +171,7 @@ class ActivityHunter:
             #If reached KeyError, probably reached request limit
             except KeyError as e:
                 if  'rate limited' in response['message']:
-                    print('reached maximum rate limit.. trying again in '+str(TRY_AGAIN_SLEEP_DELAY)+" sec")
+                    print('reached maximum rate limit.. trying again in {} sec'.format(TRY_AGAIN_SLEEP_DELAY))
                     time.sleep(TRY_AGAIN_SLEEP_DELAY)
                 else:
                     print(response)
@@ -218,7 +218,7 @@ class ActivityHunter:
 def main():
     parser = argparse.ArgumentParser(description='Activity Hunter')
     parser.add_argument('--target',"-t", help='Track activity on this Instagram username')
-    parser.add_argument('')
+    
     
     
     

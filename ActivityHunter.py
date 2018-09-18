@@ -19,12 +19,8 @@ PASSWORD = ''
 
 
 """ IMPORTS """
-import requests
-import json
-import time
-import hashlib
-import sys
-import datetime
+import requests, json, time, hashlib, sys, datetime, argparse
+
 
 class ActivityHunter:
     
@@ -34,22 +30,19 @@ class ActivityHunter:
         self.tag = True
         self.sharedData = ''
         self.target_user = target_user
-        self.to_date = "2014-06-10"
-        self.from_date = 0
+        self.to_date = "06/10/2014"
+        self.from_date = 0  
         self.time_interval = False
         self.from_users = from_users
         self.num_of_fetches = 0        
-        self.time_from = ""        
+        self.time_from = ""         
         self.log_in = False
-        self.NUM_OF_FETCHES = 0
+        self.NUM_OF_FETCHES = 0 
         
-        self.to_date = self._date_format(self.to_date)
+        
+        self.to_date = time.mktime(datetime.datetime.strptime(self.to_date, "%d-%m-%Y").timetuple())
+        
     
-    def _date_format(self, time):
-            year = int(time[:4])
-            month = int(time[5:7])
-            date = int(time[8:10])
-            return datetime.datetime(year,month,date,0,0).timestamp()
     #Logs in to Instagram
     def login(self):
         self.session = requests.Session()
@@ -109,8 +102,6 @@ class ActivityHunter:
             self.query_timeline(user)
         print('DONE')
         
-    def _gen_posts_timeline(self, username):
-        yield [self._gen_query_graphql(TIMELINE_URL, self.get_user_id(username))]
     
     def query_timeline(self, username): 
         for media in self._gen_query_graphql(TIMELINE_URL, TIMELINE_VARS, self.get_user_id(username)):
@@ -184,8 +175,7 @@ class ActivityHunter:
                     time.sleep(TRY_AGAIN_SLEEP_DELAY)
                 else:
                     print(response)
-                    
-                
+                               
                 
     def get_ig_gis(self, rhx_gis, params):
         data = rhx_gis + ":" + params
@@ -212,9 +202,9 @@ class ActivityHunter:
         
     #Parse sharedData from source code
     #sharedData is needed for grabbing IDs etc
-    def get_sharedData(self, username):
-        response = self.session.get(BASE_URL+username)
-        sharedData = self.to_json(response.text.split("window._sharedData = ")[1].split(";</script>")[0]) 
+    def get_sharedData(self, username):     
+        response = self.session.get(BASE_URL+username)      
+        sharedData = self.to_json(response.text.split("window._sharedData = ")[1].split(";</script>")[0])   
         self.sharedData = sharedData        
         #Update rhx_gis
         self.set_rhx_gis(self.sharedData['rhx_gis'])        
@@ -224,10 +214,14 @@ class ActivityHunter:
     def set_rhx_gis(self, rhx_gis):
         self.rhx_gis = rhx_gis
 
-    def timestamp_to_date(self,timestamp):
-        return datetime.datetime.fromtimestamp(timestamp).isoformat()
 
 def main():
+    parser = argparse.ArgumentParser(description='Activity Hunter')
+    parser.add_argument('--target',"-t", help='Track activity on this Instagram username')
+    parser.add_argument('')
+    
+    
+    
     a = ActivityHunter('target',['usernames'])
     a.login()
     a.scrape()

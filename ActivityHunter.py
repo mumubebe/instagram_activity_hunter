@@ -12,67 +12,76 @@ LIKES_URL = BASE_URL + 'graphql/query/?query_hash=e0f59e4a1c8d78d0161873bc2ee7ec
 LIKES_VARS = '{{"shortcode":"{0}","include_reel":true,"first":50,"after":"{1}"}}'
 COMMENTS_URL = BASE_URL + 'graphql/query/?query_hash=f0986789a5c5d17c2400faebf16efd0d&variables='
 COMMENTS_VAR = '{{"shortcode":"{0}","first":50,"after":"{1}"}}'
-SLEEP_IN_SECONDS = 1
+FOLLOWS_URL = BASE_URL + 'graphql/query/?query_hash=c56ee0ae1f89cdbd1c89e2bc6b8f3d18&variables='
+FOLLOWS_VARS = '{{"id":"{0}","include_reel":true,"fetch_mutual":false,"first":50,"after":"{1}"}}'
+SLEEP_IN_SECONDS = 2
 TRY_AGAIN_SLEEP_DELAY = 3000
-USERNAME = ''
-PASSWORD = ''
+
 
 
 """ IMPORTS """
-import requests, json, time, hashlib, sys, datetime, argparse
+import requests, json, time, hashlib, datetime, argparse
 
 
 class ActivityHunter:
     
-    def __init__(self, target_user, from_users):
-        self.comments = True
-        self.likes = True
-        self.tag = True
-        self.sharedData = ''
-        self.target_user = target_user
-        self.to_date = "06/10/2014"
-        self.from_date = 0  
-        self.time_interval = False
-        self.from_users = from_users
-        self.num_of_fetches = 0        
-        self.time_from = ""         
-        self.log_in = False
-        self.NUM_OF_FETCHES = 0 
+    def __init__(self, **kwargs):
+        self.sharedData = ''       
+        self.NUM_OF_FETCHES = 0
+        attr = dict(target_user = '', from_users=[], comments = True,
+                        likes = True, tag = True, to_time = 0, 
+                        from_time = 0, login_name=None, login_pw = None,
+                        all_follows = False)
         
-        print('reached maximum rate limit.. trying again in {} sec'.format(TRY_AGAIN_SLEEP_DELAY))
-        self.to_date = time.mktime(datetime.datetime.strptime(self.to_date, "%d/%m/%Y").timetuple())
+        attr.update(kwargs)
+        for key in attr:
+            self.__dict__[key] = attr.get(key)
         
-    
+        if self.to_time:
+            self.to_time = time.mktime(datetime.datetime.strptime(self.to_time, "%d/%m/%Y").timetuple())
+        if self.from_time:
+            self.from_time = time.mktime(datetime.datetime.strptime(self.from_time, "%d/%m/%Y").timetuple())
+        
+        self.start_session()
+        
+        if self.all_follows:
+            self.from_users = self.get_follows(self.target_user)
+        
+       
+        
     #Logs in to Instagram
-    def login(self):
+    def start_session(self):
         self.session = requests.Session()
         self.session.headers = {'user-agent': CHROME_WIN_UA}
         self.session.cookies.set('ig_pr', '1')             
         self.session.headers.update({'Referer': BASE_URL, 'user-agent': STORIES_UA})
         
-        if self.log_in:
-            #Add login settings if option is true
-            req = self.session.get(BASE_URL)
-            self.session.headers.update({'X-CSRFToken': req.cookies['csrftoken']})
+        if self.login_name and self.login_pw:
+            self.login()  
             
-            login_data = {'username': USERNAME, 'password': PASSWORD}
-            login = self.session.post(LOGIN_URL, data=login_data, allow_redirects=True)
-            self.session.headers.update({'X-CSRFToken': login.cookies['csrftoken']})
-            self.cookies = login.cookies
-            response = json.loads(login.text)
-            
-            if not response.get('user'):
-                print('No such username or verification problem')
-            elif response.get('user') and response.get('authenticated') is False :
-                print('Wrong password')
-            else:
-                print('Login successful')
-                self.is_logged_in = True   
-    
+    def login(self):
+
+        #Add login settings if option is true
+        req = self.session.get(BASE_URL)
+        self.session.headers.update({'X-CSRFToken': req.cookies['csrftoken']})
+        
+        login_data = {'username': self.login_name, 'password': self.login_pw}
+        login = self.session.post(LOGIN_URL, data=login_data, allow_redirects=True)
+        self.session.headers.update({'X-CSRFToken': login.cookies['csrftoken']})
+        self.cookies = login.cookies
+        response = json.loads(login.text)
+        
+        if not response.get('user'):
+            print('No such username or verification problem')
+        elif response.get('user') and response.get('authenticated') is False:
+            print('Wrong password')
+        else:
+            print('Login successful')
+            self.is_logged_in = True 
         
     def to_json(self, data):
         self.NUM_OF_FETCHES +=1
-        print(self.NUM_OF_FETCHES)
+        #print(self.NUM_OF_FETCHES)
         #Universal sleep for all functions that fetches data from Instagram
         time.sleep(SLEEP_IN_SECONDS)
         
@@ -81,15 +90,14 @@ class ActivityHunter:
     def _gen_query_graphql(self, url, url_vars, media_id, end_cursor = ""):
         endpoint_url = url + url_vars     
         while True:
-            #update gis-cookie (req. for no-login scraping)
+            #update gis session cookie (required for no-login scraping)
             params = url_vars.format(media_id, end_cursor)   
             self.update_ig_gis_header(params)    
             
             edges, has_next_page, end_cursor = self._data_request(endpoint_url.format(media_id, end_cursor), media_id)
 
             for edge in edges:
-                yield edge['node']
-                                                   
+                yield edge['node']                                                  
             if has_next_page:
              #If data on next page, continue                                                                 
                  continue
@@ -97,49 +105,63 @@ class ActivityHunter:
                 break
                   
     def scrape(self):   
-        print("Scraping...")
+        print('Scraping activity...')
         for user in self.from_users:
+            print('checking user {}'.format(user))
             self.query_timeline(user)
-        print('DONE')
+        print('Done.')
         
     
     def query_timeline(self, username): 
         for media in self._gen_query_graphql(TIMELINE_URL, TIMELINE_VARS, self.get_user_id(username)):
-
-            if self.time_interval:
+            upload_time = media['taken_at_timestamp']
+            upload_dateformat = (self.format_timestamp(upload_time))
+            like_count = media['edge_media_preview_like']['count']
+            shortcode = media['shortcode']
+            
+            if self.from_time or self.to_time:
                 #Break if media is timestamp is lower than lowest interval span
-                if self.from_date > media['taken_at_timestamp']:
+                if self.from_time > upload_time:
                     break
                 #Go to next media if it's not in selected interval. 
-                if not self.from_date <= media['taken_at_timestamp'] <= self.to_date:
+                if not self.from_time <= upload_time <= self.to_time:
                     continue
             
             if self.tag:
                 for tagged_user in media['edge_media_to_tagged_user']['edges']:
                     if tagged_user['node']['user']['username'] in self.target_user:
-                        print("user tagged in photo")
+                        print("{:<16s}{:<16s}{:<16s}{:<16s}".format(self.target_user,"tag", username, upload_dateformat))
                         
                        
             #Check if likes enable in settings and likes exist in post
-            if self.likes and media['edge_media_preview_like']['count']:
-                    for likes in self._gen_query_graphql(LIKES_URL, LIKES_VARS, media['shortcode']):
+            if self.likes and like_count:
+                    for likes in self._gen_query_graphql(LIKES_URL, LIKES_VARS, shortcode):
                         if likes['username'] in self.target_user:                          
-                            print(likes['username']+" liked "+username+"'s media(")
+                            print("{:<16s}{:<16s}{:<16s}{:<16s}".format(likes['username'],"like",username, upload_dateformat))
+                            
                             break
             
             if self.comments:
                 comment_preview_edges = media['edge_media_to_comment']['edges']
                 has_next_page = media['edge_media_to_comment']['page_info']['has_next_page']
-                shortcode = media['shortcode']   
                 
                 #Check if comments exist in post
                 if comment_preview_edges:
                     #If post has less comments than preview, scrape direct from media, otherwise scrape from post
                     for comments in self._gen_query_graphql(COMMENTS_URL, COMMENTS_VAR, shortcode) if has_next_page else [a['node'] for a in comment_preview_edges]:
                         if comments['owner']['username'] in self.target_user:
-                            print(comments['text'])
+                            print("{:<16s}{:<16s}{:<16s}{:<16s}".format(self.target_user, "comment", username, upload_dateformat),comments['text'])
                         
-                        
+    
+    def get_follows(self, username):
+        print('Getting all follows...')
+        follows = []
+        for edge in self._gen_query_graphql(FOLLOWS_URL, FOLLOWS_VARS, self.get_user_id(username)):   
+             if not edge['is_private']:
+                 follows.append(edge['username'])
+        print('Found {} open users'.format(len(follows)))
+        return follows
+             
     #Function that get response data from Instagram
     #Return JSON
     def _data_request(self, data_url, media_id):
@@ -165,6 +187,11 @@ class ActivityHunter:
                    end_cursor = response['data'] ['shortcode_media']['edge_media_to_comment']['page_info']['end_cursor'] 
                    has_next_page = response['data']['shortcode_media']['edge_media_to_comment']['page_info']['has_next_page']  
                    edges = response['data']['shortcode_media']['edge_media_to_comment']['edges']
+                #FOLLOWS
+                elif 'c56ee0ae1f89cdbd1c89e2bc6b8f3d18' in data_url:
+                    end_cursor = response['data'] ['user']['edge_follow']['page_info']['end_cursor'] 
+                    has_next_page = response['data'] ['user']['edge_follow']['page_info']['has_next_page']  
+                    edges = response['data']['user']['edge_follow']['edges']
                                    
                 return edges, has_next_page, end_cursor
                 
@@ -174,22 +201,16 @@ class ActivityHunter:
                     print('reached maximum rate limit.. trying again in {} sec'.format(TRY_AGAIN_SLEEP_DELAY))
                     time.sleep(TRY_AGAIN_SLEEP_DELAY)
                 else:
-                    print(response)
-                               
+                    print(response + "\n exit program..")
+                    raise SystemExit          
                 
-    def get_ig_gis(self, rhx_gis, params):
-        data = rhx_gis + ":" + params
-        if sys.version_info.major >= 3:
-            return hashlib.md5(data.encode('utf-8')).hexdigest()
-        else:
-            return hashlib.md5(data).hexdigest()
-
+    #Update the gis-cookie
+    #md5-hash = rhx_value:params
+    #rhx_value is stored in sharedData
     def update_ig_gis_header(self, params):
         self.session.headers.update({
-            'x-instagram-gis': self.get_ig_gis(
-                self.rhx_gis,
-                params
-            )
+            'x-instagram-gis': 
+                hashlib.md5((self.rhx_gis + ":" + params).encode('utf-8')).hexdigest()
             })      
             
                
@@ -206,28 +227,24 @@ class ActivityHunter:
         response = self.session.get(BASE_URL+username)      
         sharedData = self.to_json(response.text.split("window._sharedData = ")[1].split(";</script>")[0])   
         self.sharedData = sharedData        
-        #Update rhx_gis
-        self.set_rhx_gis(self.sharedData['rhx_gis'])        
+        #Update current rhx_gis
+        self.rhx_gis = self.sharedData['rhx_gis']     
         return sharedData
         
     
-    def set_rhx_gis(self, rhx_gis):
-        self.rhx_gis = rhx_gis
-
-
+    def pretty_string(self,target, action, user, *args):
+        return ('{:<16s}{:<16s}{:<16s}'+'{:<16s}'*len(args)).format(target, action, user)
+    
+    def format_timestamp(self,timestamp):
+        return time.strftime("%D %H:%M", time.localtime(int(timestamp)))
+        
 def main():
     parser = argparse.ArgumentParser(description='Activity Hunter')
     parser.add_argument('--target',"-t", help='Track activity on this Instagram username')
-    
-    
-    
-    
-    a = ActivityHunter('target',['usernames'])
-    a.login()
+       
+    a = ActivityHunter(target_user = 'charleskos', from_users = [''], from_time = '01/08/2018', all_follows=True)
     a.scrape()
-
-    
-    
+   
 
 if __name__ == '__main__':
     main()

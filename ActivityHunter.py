@@ -17,11 +17,8 @@ FOLLOWS_VARS = '{{"id":"{0}","include_reel":true,"fetch_mutual":false,"first":50
 SLEEP_IN_SECONDS = 2
 TRY_AGAIN_SLEEP_DELAY = 3000
 
-
-
 """ IMPORTS """
 import requests, json, time, hashlib, datetime, argparse
-
 
 class ActivityHunter:
     
@@ -47,8 +44,7 @@ class ActivityHunter:
         if self.all_follows:
             self.from_users = self.get_follows(self.target_user)
         
-       
-        
+               
     #Logs in to Instagram
     def start_session(self):
         self.session = requests.Session()
@@ -60,8 +56,6 @@ class ActivityHunter:
             self.login()  
             
     def login(self):
-
-        #Add login settings if option is true
         req = self.session.get(BASE_URL)
         self.session.headers.update({'X-CSRFToken': req.cookies['csrftoken']})
         
@@ -111,7 +105,6 @@ class ActivityHunter:
             self.query_timeline(user)
         print('Done.')
         
-    
     def query_timeline(self, username): 
         for media in self._gen_query_graphql(TIMELINE_URL, TIMELINE_VARS, self.get_user_id(username)):
             upload_time = media['taken_at_timestamp']
@@ -130,15 +123,13 @@ class ActivityHunter:
             if self.tag:
                 for tagged_user in media['edge_media_to_tagged_user']['edges']:
                     if tagged_user['node']['user']['username'] in self.target_user:
-                        print("{:<16s}{:<16s}{:<16s}{:<16s}".format(self.target_user,"tag", username, upload_dateformat))
-                        
+                        print("{:<16s}{:<16s}{:<16s}{:<16s}".format(self.target_user,"tag", username, upload_dateformat))                     
                        
             #Check if likes enable in settings and likes exist in post
             if self.likes and like_count:
                     for likes in self._gen_query_graphql(LIKES_URL, LIKES_VARS, shortcode):
                         if likes['username'] in self.target_user:                          
-                            print("{:<16s}{:<16s}{:<16s}{:<16s}".format(likes['username'],"like",username, upload_dateformat))
-                            
+                            print("{:<16s}{:<16s}{:<16s}{:<16s}".format(likes['username'],"like",username, upload_dateformat))                          
                             break
             
             if self.comments:
@@ -212,8 +203,7 @@ class ActivityHunter:
             'x-instagram-gis': 
                 hashlib.md5((self.rhx_gis + ":" + params).encode('utf-8')).hexdigest()
             })      
-            
-               
+                           
     #Get user ID of user
     def get_user_id(self, username):
         if self.sharedData is '' or self.get_sharedData(username)['entry_data']['ProfilePage'][0]['graphql']['user']['id'] is not username:
@@ -230,10 +220,7 @@ class ActivityHunter:
         #Update current rhx_gis
         self.rhx_gis = self.sharedData['rhx_gis']     
         return sharedData
-        
-    
-    def pretty_string(self,target, action, user, *args):
-        return ('{:<16s}{:<16s}{:<16s}'+'{:<16s}'*len(args)).format(target, action, user)
+
     
     def format_timestamp(self,timestamp):
         return time.strftime("%D %H:%M", time.localtime(int(timestamp)))
@@ -242,7 +229,7 @@ def main():
     parser = argparse.ArgumentParser(description='Activity Hunter')
     parser.add_argument('--target',"-t", help='Track activity on this Instagram username')
        
-    a = ActivityHunter(target_user = 'charleskos', from_users = [''], from_time = '01/08/2018', all_follows=True)
+    a = ActivityHunter(target_user = 'username', from_users = [''], from_time = '01/08/2018', all_follows=True)
     a.scrape()
    
 

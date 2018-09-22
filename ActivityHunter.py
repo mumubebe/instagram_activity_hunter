@@ -26,7 +26,7 @@ class ActivityHunter:
         self.sharedData = ''       
         self.NUM_OF_FETCHES = 0
         attr = dict(target_user = '', from_users=[], comments = True,
-                        likes = True, tag = True, to_time = 0, 
+                        likes = True, tag = True, to_time = None, 
                         from_time = 0, login_name=None, login_pw = None,
                         all_follows = False)
         
@@ -43,7 +43,8 @@ class ActivityHunter:
         
         if self.all_follows:
             self.from_users = self.get_follows(self.target_user)
-        
+        self.login_name = None
+        self.start_session()
                
     #Logs in to Instagram
     def start_session(self):
@@ -105,19 +106,23 @@ class ActivityHunter:
             self.query_timeline(user)
         print('Done.')
         
-    def query_timeline(self, username): 
-        for media in self._gen_query_graphql(TIMELINE_URL, TIMELINE_VARS, self.get_user_id(username)):
+    def query_timeline(self, username):
+        sharedData = self.get_sharedData(username)
+        user_id = sharedData['id']
+        
+        for media in self._gen_query_graphql(TIMELINE_URL, TIMELINE_VARS, user_id):
             upload_time = media['taken_at_timestamp']
             upload_dateformat = (self.format_timestamp(upload_time))
             like_count = media['edge_media_preview_like']['count']
             shortcode = media['shortcode']
             
-            if self.from_time or self.to_time:
+            if self.from_time:
                 #Break if media is timestamp is lower than lowest interval span
                 if self.from_time > upload_time:
                     break
-                #Go to next media if it's not in selected interval. 
-                if not self.from_time <= upload_time <= self.to_time:
+            if self.to_time:
+                #Continue to next if upload time is higher than to time
+                if self.to_time < upload_time:
                     continue
             
             if self.tag:
@@ -145,9 +150,15 @@ class ActivityHunter:
                         
     
     def get_follows(self, username):
+        sharedData = self.get_sharedData(username)
+        user_id = sharedData['id']
+        
+        if not self.is_logged_in:
+            print("You need to be logged in to get users followers")
+            return
         print('Getting all follows...')
         follows = []
-        for edge in self._gen_query_graphql(FOLLOWS_URL, FOLLOWS_VARS, self.get_user_id(username)):   
+        for edge in self._gen_query_graphql(FOLLOWS_URL, FOLLOWS_VARS, user_id):   
              if not edge['is_private']:
                  follows.append(edge['username'])
         print('Found {} open users'.format(len(follows)))
@@ -203,13 +214,7 @@ class ActivityHunter:
             'x-instagram-gis': 
                 hashlib.md5((self.rhx_gis + ":" + params).encode('utf-8')).hexdigest()
             })      
-                           
-    #Get user ID of user
-    def get_user_id(self, username):
-        if self.sharedData is '' or self.get_sharedData(username)['entry_data']['ProfilePage'][0]['graphql']['user']['id'] is not username:
-            return self.get_sharedData(username)['entry_data']['ProfilePage'][0]['graphql']['user']['id']
-        else:
-            return username
+                          
         
     #Parse sharedData from source code
     #sharedData is needed for grabbing IDs etc
@@ -219,7 +224,7 @@ class ActivityHunter:
         self.sharedData = sharedData        
         #Update current rhx_gis
         self.rhx_gis = self.sharedData['rhx_gis']     
-        return sharedData
+        return sharedData['entry_data']['ProfilePage'][0]['graphql']['user']
 
     
     def format_timestamp(self,timestamp):
@@ -229,7 +234,7 @@ def main():
     parser = argparse.ArgumentParser(description='Activity Hunter')
     parser.add_argument('--target',"-t", help='Track activity on this Instagram username')
        
-    a = ActivityHunter(target_user = 'username', from_users = [''], from_time = '01/08/2018', all_follows=True)
+    a = ActivityHunter(target_user = 'username', from_users = [''], from_time = '01/08/2018', all_follows=True, likes=False)
     a.scrape()
    
 

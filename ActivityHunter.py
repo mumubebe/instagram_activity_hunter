@@ -1,7 +1,7 @@
 """ CONSTANTS """
 BASE_URL = 'https://www.instagram.com/'
 LOGIN_URL = BASE_URL + 'accounts/login/ajax/'
-STORIES_UA = 'Instagram 52.0.0.8.83 (iPhone; CPU iPhone OS 11_4 like Mac OS X; en_US; en-US; scale=2.00; 750x1334) AppleWebKit/605.1.15'
+STORIES_UA = 'Instagram 52.0.0.8.83 (iPhone; CPU iPhone OS 11_1 like Mac OS X; en_US; en-US; scale=2.00; 750x1334) AppleWebKit/605.1.15'
 CHROME_WIN_UA = 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36'
 IMG_FEED = BASE_URL +  'graphql/query/?query_hash=e7e2f4da4b02303f74f0841279e52d76&variables=%7B%22id%22%3A%2254113000%22%2C%22first%22%3A50%2C%22after%22%3A%22'
 FOLLOWS_FIRST_URL = BASE_URL + 'graphql/query/?query_hash=c56ee0ae1f89cdbd1c89e2bc6b8f3d18&variables=%7B%22id%22%3A%22{0}%22%2C%22include_reel%22%3Atrue%2C%22first%22%3A50%7D'
@@ -24,27 +24,26 @@ import requests, json, time, hashlib, datetime, argparse
 
 class ActivityHunter:
     
-    def __init__(self, **kwargs):     
-        self.NUM_OF_FETCHES = 0
+    def __init__(self, **kwargs): 
+        self.is_logged_in = False 
         attr = dict(target_user = '', from_users=[], comments = True,
                         likes = True, tag = True, to_time = None, 
                         from_time = 0, login_name=None, login_pw = None,
-                        all_follows = False)
+                        all_follows = False, popularity = 300)
         
         attr.update(kwargs)
         for key in attr:
             self.__dict__[key] = attr.get(key)
-        
+       
         if self.to_time:
             self.to_time = time.mktime(datetime.datetime.strptime(self.to_time, "%d/%m/%Y").timetuple())
         if self.from_time:
             self.from_time = time.mktime(datetime.datetime.strptime(self.from_time, "%d/%m/%Y").timetuple())
         
-        self.start_session()
         if self.all_follows:
             self.from_users = self.get_follows(self.target_user)
             
-        self.login_name = None
+        
         self.start_session()
                
     #Logs in to Instagram
@@ -76,11 +75,8 @@ class ActivityHunter:
             self.is_logged_in = True 
         
     def to_json(self, data):
-        self.NUM_OF_FETCHES +=1
-        #print(self.NUM_OF_FETCHES)
         #Universal sleep for all functions that fetches data from Instagram
-        time.sleep(SLEEP_IN_SECONDS)
-        
+        time.sleep(SLEEP_IN_SECONDS)      
         return json.loads(data)
     
     def _gen_query_graphql(self, url, url_vars, media_id, end_cursor = ""):
@@ -107,8 +103,7 @@ class ActivityHunter:
         print("-"*110)
         
         for user in self.from_users:
-            self.query_timeline(user)
-            
+            self.query_timeline(user)            
         print('Done.')
         
     def query_timeline(self, username):
@@ -121,10 +116,10 @@ class ActivityHunter:
             like_count = media['edge_media_preview_like']['count']
             shortcode = media['shortcode']
             
-            if like_count > 300:
-                continue
             
-            print('checking user {}...'.format(username), end='\r')
+            
+            if self.popularity and like_count > self.popularity:
+                continue
             
             if self.from_time:
                 #Break if media is timestamp is lower than lowest interval span
@@ -228,8 +223,7 @@ class ActivityHunter:
             'x-instagram-gis': 
                 hashlib.md5((self.rhx_gis + ":" + params).encode('utf-8')).hexdigest()
             })      
-                          
-        
+                                 
     #Parse sharedData from source code
     #sharedData is needed for grabbing IDs etc
     def get_sharedData(self, username):     
@@ -238,16 +232,28 @@ class ActivityHunter:
         #Update current rhx_gis
         self.rhx_gis = sharedData['rhx_gis']     
         return sharedData['entry_data']['ProfilePage'][0]['graphql']['user']
-
     
     def format_timestamp(self,timestamp):
         return time.strftime("%D", time.localtime(int(timestamp)))
         
 def main():
-    parser = argparse.ArgumentParser(description='Activity Hunter')
-    parser.add_argument('--target',"-t", help='Track activity on this Instagram username')
-       
-    a = ActivityHunter(target_user = 'username', from_users = [''] ,likes=True)
+    parser = argparse.ArgumentParser(description='---Activity Hunter--- Track and collect a users activity on Instagram')
+    parser.add_argument("--target-user", help='<Required> Track this users activity activity', required=True)
+    parser.add_argument('--from-users',"--from_users", help='<Required> Track activity on these accounts, separated with space',nargs='+', required=True)
+
+    parser.add_argument('--login-name',"--login_name", help='Login name (required if user acc is private)')
+    parser.add_argument('--login-password',"--login_pw", help='Login password (required if user acc is private)')
+    parser.add_argument('--likes', help='track likes by target', action="store_true")
+    parser.add_argument('--tags', help='track tags in media of target', action="store_true")
+    parser.add_argument('--comments', help='track comments by target', action="store_true")
+    parser.add_argument('--popularity', help='Set limit to amount of likes on media (recommended)', type=int)
+    parser.add_argument('--from-time','--from_time', help='check media after date uploaded, d/m/Y format')
+    parser.add_argument('--to-time','--to_time', help='check media before date, d/m/Y format')
+    
+    args = parser.parse_args() 
+    
+    a = ActivityHunter(**vars(args))
+    
     a.scrape()
    
 

@@ -29,7 +29,7 @@ class ActivityHunter:
         attr = dict(target_user = '', from_users=[], comments = True,
                         likes = True, tag = True, to_time = None, 
                         from_time = 0, login_name=None, login_pw = None,
-                        all_follows = False, popularity = 300)
+                        all_follows = False, popularity = 0)
         
         attr.update(kwargs)
         for key in attr:
@@ -68,7 +68,7 @@ class ActivityHunter:
         
         if not response.get('user'):
             print('No such username or verification problem')
-        elif response.get('user') and response.get('authenticated') is False:
+        elif response.get('user') and response.get('authenticated') is Falseç:
             print('Wrong password')
         else:
             print('Login successful!')
@@ -237,18 +237,19 @@ class ActivityHunter:
         return time.strftime("%D", time.localtime(int(timestamp)))
         
 def main():
-    parser = argparse.ArgumentParser(description='---Activity Hunter--- Track and collect a users activity on Instagram')
-    parser.add_argument("--target-user", help='<Required> Track this users activity activity', required=True)
-    parser.add_argument('--from-users',"--from_users", help='<Required> Track activity on these accounts, separated with space',nargs='+', required=True)
+    parser = argparse.ArgumentParser(description='Tool to collect a user\'s activities (https://github.com/papeta/instagram_activity_hunter)',
+                                     usage='%(prog)s -t <username_to_track> -f <from_usernames> [options]')
+    parser.add_argument('-t','--target-user', help='This is the user\' activity to track', required=True)
+    parser.add_argument('-f',"--from_users", help='Track activity on these users profiles, separated with space: (ex. -f user1 user2 user3)',nargs='+', required=True)
 
     parser.add_argument('--login-name',"--login_name", help='Login name (required if user acc is private)')
     parser.add_argument('--login-password',"--login_pw", help='Login password (required if user acc is private)')
     parser.add_argument('--likes', help='track likes by target', action="store_true")
     parser.add_argument('--tags', help='track tags in media of target', action="store_true")
     parser.add_argument('--comments', help='track comments by target', action="store_true")
-    parser.add_argument('--popularity', help='Set limit to amount of likes on media (recommended)', type=int)
-    parser.add_argument('--from-time','--from_time', help='check media after date uploaded, d/m/Y format')
-    parser.add_argument('--to-time','--to_time', help='check media before date, d/m/Y format')
+    parser.add_argument('--popularity', help='Set limit to amount of likes on media to track (recommended)', type=int)
+    parser.add_argument('--from-time','--from_time', help='check media after date uploaded, d/m/Y format (ex. --from-time 22/3/2018 will only check media after this date)')
+    parser.add_argument('--to-time','--to_time', help='check media before date, d/m/Y format (ex. --to-time 22/3/2018 will only check media before this date)')
     
     args = parser.parse_args() 
     

@@ -2,7 +2,8 @@
 
 Tool to collect a user's activities (comments, likes, tags) on other users profiles
 
-
+usage
+-----
 ```
 usage: ActivityHunter.py -t <username_to_track> -f <from_usernames> [options]
 
@@ -36,7 +37,7 @@ example
 -------
 Collect all of kimkardashian's likes on khloekardashian profile:
 ```
-$ python3 ActivityHunter.py --from-users kimkardashian --target khloekardashian --likes
+$ python3 ActivityHunter.py -f kimkardashian -t khloekardashian --likes
 ```
 output:
 ```
@@ -48,5 +49,5 @@ khloekardashian     like      kimkardashian       11/13/18     instagr.am/p/BqFl
 khloekardashian     like      kimkardashian       11/11/18     instagr.am/p/Bp7Qkb_HZh7                        
 khloekardashian     like      kimkardashian       11/09/18     instagr.am/p/Bp3BB7MHf5C                       
 khloekardashian     like      kimkardashian       11/06/18     instagr.am/p/Bp7Qkb_HZh7
-
+....
 ```

@@ -1,20 +1,18 @@
-# Activity Hunter
-```
-usage: ActivityHunter.py [-h] --target-user TARGET_USER --from-users
-                         FROM_USERS [FROM_USERS ...] [--login-name LOGIN_NAME]
-                         [--login-password LOGIN_PASSWORD] [--likes] [--tags]
-                         [--comments] [--popularity POPULARITY]
-                         [--from-time FROM_TIME] [--to-time TO_TIME]
+# Instagram Activity Hunter
 
----Activity Hunter--- Track and collect a users activity on Instagram
+Tool to collect a user's activities (comments, likes, tags) on other users profiles
+
+
+```
+usage: ActivityHunter.py -t <username_to_track> -f <from_usernames> [options]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --target-user TARGET_USER
-                        <Required> Track this users activity activity
-  --from-users FROM_USERS [FROM_USERS ...], --from_users FROM_USERS [FROM_USERS ...]
-                        <Required> Track activity on these accounts, separated
-                        with space
+  -t TARGET_USER, --target-user TARGET_USER
+                        This is the user' activity to track
+  -f FROM_USERS [FROM_USERS ...], --from_users FROM_USERS [FROM_USERS ...]
+                        Track activity on these users profiles, separated with
+                        space: (ex. -f user1 user2 user3)
   --login-name LOGIN_NAME, --login_name LOGIN_NAME
                         Login name (required if user acc is private)
   --login-password LOGIN_PASSWORD, --login_pw LOGIN_PASSWORD
@@ -23,17 +21,22 @@ optional arguments:
   --tags                track tags in media of target
   --comments            track comments by target
   --popularity POPULARITY
-                        Set limit to amount of likes on media (recommended)
+                        Set limit to amount of likes on media to track
+                        (recommended)
   --from-time FROM_TIME, --from_time FROM_TIME
-                        check media after date uploaded, d/m/Y format
+                        check media after date uploaded, d/m/Y format (ex.
+                        --from-time 22/3/2018 will only check media after this
+                        date)
   --to-time TO_TIME, --to_time TO_TIME
-                        check media before date, d/m/Y format
+                        check media before date, d/m/Y format (ex. --to-time
+                        22/3/2018 will only check media before this date)
 ```
 
 example
 -------
+Collect all of kimkardashian's likes on khloekardashian profile:
 ```
-$ python3 ActivityHunter.py --from-users kimkardashian --target khloekardashian --likes --comments --tags
+$ python3 ActivityHunter.py --from-users kimkardashian --target khloekardashian --likes
 ```
 output:
 ```
